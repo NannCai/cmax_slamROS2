@@ -1,35 +1,55 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.5)
 project(cmax_slam)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE Release) # Release, RelWithDebInfo
-set(CMAKE_CXX_FLAGS "-fopenmp -O4 ${CMAKE_CXX_FLAGS}")
-
-find_package(catkin_simple REQUIRED)
-catkin_simple(ALL_DEPS_REQUIRED)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(gsl REQUIRED gsl)
-
+# Find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(event_camera_codecs REQUIRED)
+find_package(image_geometry REQUIRED)
+find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(Eigen3 REQUIRED)
 
-file(GLOB SOURCES src/frontend/*.cpp
-                  src/backend/*.cpp
-                  src/utils/*.cpp
-                  src/*.cpp)
+# Include directories
+include_directories(
+  include
+  ${rclcpp_INCLUDE_DIRS}
+  ${sensor_msgs_INCLUDE_DIRS}
+  ${event_camera_codecs_INCLUDE_DIRS}
+  ${image_geometry_INCLUDE_DIRS}
+  ${cv_bridge_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
 
-cs_add_executable(${PROJECT_NAME} ${SOURCES})
+)
 
-include_directories(include)
 include_directories(thirdparty/basalt-headers/thirdparty/Sophus)
 include_directories(thirdparty/basalt-headers/thirdparty/cereal/include)
 include_directories(thirdparty/basalt-headers/include)
 
-target_link_libraries(${PROJECT_NAME}
-   ${catkin_LIBRARIES}
-   ${OpenCV_LIBRARIES}
-   ${gsl_LIBRARIES}
+# Source files
+set(SOURCES
+  src/cmax_slam.cpp
+  src/node.cpp
 )
 
-cs_export()
+# Executable
+add_executable(${PROJECT_NAME} ${SOURCES})
+
+# Link libraries
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  sensor_msgs
+  event_camera_codecs
+  image_geometry
+  cv_bridge
+  OpenCV
+)
+
+# Install
+install(TARGETS ${PROJECT_NAME}
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+ament_package()

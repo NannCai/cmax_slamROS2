@@ -34,7 +34,8 @@ PoseGraphOptimizer::~PoseGraphOptimizer()
 
 void PoseGraphOptimizer::initialize(int camera_width, int camera_height,
                                     const PoseGraphParams &opt,
-                                    std::vector<dvs_msgs::Event>* ptr,
+                                    // std::vector<dvs_msgs::Event>* ptr,
+                                    const event_camera_codecs::EventPacket::SharedPtr ptr,
                                     std::vector<cv::Point3d>* precomputed_bearing_vectors_ptr)
 {
     // Load params

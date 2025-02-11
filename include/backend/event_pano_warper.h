@@ -8,11 +8,9 @@
 
 #include <vector>
 
-#include <ros/ros.h>
-#include <dvs_msgs/Event.h>
-#include <dvs_msgs/EventArray.h>
-#include <sensor_msgs/Imu.h>
-#include <sensor_msgs/CameraInfo.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <image_geometry/pinhole_camera_model.h>
 
 namespace cmax_slam {
@@ -47,7 +45,7 @@ public:
                        const cv::Vec3i& color);
 
     // Set the start time of the next trajectory
-    void setNextWinBegTime(const ros::Time& val) { t_next_win_beg_ = val; }
+    void setNextWinBegTime(const rclcpp::Time& val) { t_next_win_beg_ = val; }
 
     // Set the number of fixed control poses in the current time window
     void setNumFixedCtrlPoses(const int val) { num_cps_fixed_ = val; }
@@ -57,14 +55,14 @@ public:
 
     // Compute IWE
     void computeImageOfWarpedEvents(Trajectory* traj,
-                                    std::vector<dvs_msgs::Event>* event_subset,
+                                    std::vector<event_camera_codecs::Event>* event_subset,
                                     cv::Mat* iwe,
                                     std::vector<cv::Mat>* iwe_deriv);
 
     // Process events by batch to speed up, all events in the same batch share a common pose
     void warpAndAccumulateEvents(Trajectory* traj,
-                                 std::vector<dvs_msgs::Event>::iterator event_begin,
-                                 std::vector<dvs_msgs::Event>::iterator event_end,
+                                 std::vector<event_camera_codecs::Event>::iterator event_begin,
+                                 std::vector<event_camera_codecs::Event>::iterator event_end,
                                  std::vector<cv::Mat>* iwe_deriv);
 
     // Adaptive alpha for global alignment: I = IL + alpha * IG
@@ -98,7 +96,7 @@ private:
     cv::Size pano_size_;
 
     // Sliding window
-    ros::Time t_next_win_beg_; // To distinguish events that should be on the old/new map
+    rclcpp::Time t_next_win_beg_; // To distinguish events that should be on the old/new map
 
     // Number of fixed control poses in the current time window
     int num_cps_fixed_;

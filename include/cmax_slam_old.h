@@ -2,14 +2,14 @@
 
 #include <thread>
 #include <fstream>
-#include <rclcpp/rclcpp.hpp>
-#include <event_camera_codecs/decoder.h>
 
 #include "frontend/ang_vel_estimator.h"
 #include "backend/pose_graph_optimizer.h"
 
-#include <sensor_msgs/msg/camera_info.hpp>
-#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/Image.h>
+#include <dvs_msgs/Event.h>
+#include <dvs_msgs/EventArray.h>
 
 namespace cmax_slam {
 
@@ -17,7 +17,7 @@ class CMaxSLAM
 {
 public:
     // Constructor
-    CMaxSLAM(rclcpp::Node::SharedPtr node);
+    CMaxSLAM(ros::NodeHandle& nh);
     // Deconstructor
     ~CMaxSLAM();
 
@@ -25,17 +25,16 @@ public:
     std::vector<cv::Point3d> precomputed_bearing_vectors; // Share with the back-end
     image_geometry::PinholeCameraModel cam;
 
-    using EventPacket = event_camera_msgs::msg::EventPacket;
-
 private:
     // Node handle used to subscribe to ROS topics
-    rclcpp::Node::SharedPtr node_;
+    ros::NodeHandle nh_;
+    // Private node handle for reading parameters
+    ros::NodeHandle pnh_;
 
     // Subscribers and callbacks
-    rclcpp::Subscription<event_camera_codecs::EventPacket>::SharedPtr event_sub_;
-    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
-    void eventsCallback(const event_camera_codecs::EventPacket::SharedPtr msg);
-    void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr camera_info);
+    ros::Subscriber event_sub_, camera_info_sub_;
+    void eventsCallback(const dvs_msgs::EventArray::ConstPtr& msg);
+    void cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info);
     bool got_camera_info_;
 
     // Precompute bearing vectors and share with the front-end and the back-end

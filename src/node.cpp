@@ -1,25 +1,12 @@
-#include <ros/ros.h>
-#include <glog/logging.h>
-#include <gflags/gflags.h>
-
+#include <rclcpp/rclcpp.hpp>
 #include "cmax_slam.h"
 
 int main(int argc, char* argv[])
 {
-  // Initialize Google's logging library.
-  google::InitGoogleLogging(argv[0]);
-  google::ParseCommandLineFlags(&argc, &argv, true);
-  google::InstallFailureSignalHandler();
-  FLAGS_alsologtostderr = true;
-  FLAGS_colorlogtostderr = true;
-
-  ros::init(argc, argv, "cmax_slam");
-
-  ros::NodeHandle nh;
-
-  cmax_slam::CMaxSLAM slam(nh);
-
-  ros::spin();
-
-  return 0;
+    rclcpp::init(argc, argv);
+    // auto node = rclcpp::Node::make_shared("cmax_slam");
+    auto slam = std::make_shared<cmax_slam::CMaxSLAM>("cmax_slam");
+    rclcpp::spin(slam);
+    rclcpp::shutdown();
+    return 0;
 }

@@ -1,5 +1,5 @@
 ﻿#include "backend/event_pano_warper.h"
-#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/msg/imu.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <glog/logging.h>
 
@@ -236,10 +236,10 @@ void EventWarper::warpAndAccumulateEvents(Trajectory *traj,
                                           std::vector<cv::Mat>* iwe_deriv)
 {
     // Share a common pose for all events in the batch
-    ros::Time time_first = event_begin->ts;
-    ros::Time time_last = (event_end-1)->ts;
-    ros::Duration time_dt = time_last - time_first;
-    ros::Time time_batch = time_first + time_dt * 0.5;
+    rclcpp::Time time_first = event_begin->ts;
+    rclcpp::Time time_last = (event_end-1)->ts;
+    rclcpp::Duration time_dt = time_last - time_first;
+    rclcpp::Time time_batch = time_first + time_dt * 0.5;
 
     Sophus::SO3d so3;
 
@@ -334,4 +334,7 @@ void EventWarper::warpAndAccumulateEvents(Trajectory *traj,
         }
     }
 }
+
+void EventWarper::setNextWinBegTime(const rclcpp::Time& val) { t_next_win_beg_ = val; }
+
 }
