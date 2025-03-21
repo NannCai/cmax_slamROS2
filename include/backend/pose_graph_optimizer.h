@@ -4,18 +4,19 @@
 #include "backend/event_pano_warper.h"
 #include "utils/parameters.h"
 
-#include <ros/ros.h>
+// #include <ros/ros.h>
 #include <opencv2/core.hpp>
 
 #include <cv_bridge/cv_bridge.h>
-#include <image_transport/image_transport.h>
+#include <image_transport/image_transport.hpp>
 
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 
-#include <dvs_msgs/Event.h>
-#include <dvs_msgs/EventArray.h>
+// #include <dvs_msgs/Event.h>
+// #include <dvs_msgs/EventArray.h>
+#include "event_adapter.hpp"
 
 #include <deque>
 #include <vector>
@@ -27,14 +28,14 @@ namespace cmax_slam
 
 class AngVelEstimator;
 
-typedef std::pair<ros::Time, Eigen::Vector3d> AngVelEntry;
-typedef std::map<ros::Time, Eigen::Vector3d> AngVelMap;
+typedef std::pair<rclcpp::Time, Eigen::Vector3d> AngVelEntry;
+typedef std::map<rclcpp::Time, Eigen::Vector3d> AngVelMap;
 typedef std::pair<int, int> EvIdxPair;
 
 class PoseGraphOptimizer {
 public:
     // Constructor
-    PoseGraphOptimizer(ros::NodeHandle* nh);
+    PoseGraphOptimizer(rclcpp::Node::SharedPtr node);
 
     // Deconstructor
     ~PoseGraphOptimizer();
@@ -42,14 +43,14 @@ public:
     // Initialize the backend
     void initialize(int camera_width, int camera_height,
                     const PoseGraphParams& val,
-                    std::vector<dvs_msgs::Event>* ptr,
+                    std::vector<DvsEvent>* ptr,
                     std::vector<cv::Point3d>* precomputed_bearing_vectors_ptr);
 
     // Set the pointer to the frontend
     void setFrontend(AngVelEstimator* ptr) { ang_vel_estimator_ = ptr; }
 
     // Feed frontend angular velocity and the corresponding events into the backend
-    void pushAngVel(const ros::Time& ts, const Eigen::Vector3d& ang_vel);
+    void pushAngVel(const rclcpp::Time& ts, const Eigen::Vector3d& ang_vel);
 
     // Main function of the backend
     void Run();
@@ -90,25 +91,29 @@ public:
     cv::Mat evoluting_sharp_iwe_;
 
     // Event subset look-up table
-    std::map<ros::Time,int> ev_subset_ts_map_;
+    std::map<rclcpp::Time,int> ev_subset_ts_map_;
 
 private:
     // Node handle used to subscribe to ROS topics
-    ros::NodeHandle* nh_;
+    // ros::NodeHandle* nh_;
+    rclcpp::Node::SharedPtr node_;
 
     // Publishers
-    image_transport::ImageTransport it_;
+    // image_transport::ImageTransport it_;
+    std::shared_ptr<image_transport::ImageTransport> it_;
     image_transport::Publisher image_pub_;
 
+
+
     // Timestamp for the display IWE
-    ros::Time ts_event_image_;
+    rclcpp::Time ts_event_image_;
 
     // Sliding window
     void slideWindow();
     // Begin/end time of current window
-    ros::Time t_win_beg_, t_win_end_;
-    ros::Time t_ang_vel_beg_, t_ang_vel_end_;
-    ros::Duration win_size_, win_stride_;
+    rclcpp::Time t_win_beg_, t_win_end_;
+    rclcpp::Time t_ang_vel_beg_, t_ang_vel_end_;
+    rclcpp::Duration win_size_ = rclcpp::Duration::from_seconds(0), win_stride_ = rclcpp::Duration::from_seconds(0);
     // Index of the first control pose within the current timw window
     int idx_cp_traj_beg_;
     // Index of the first control pose involved in the optimization
@@ -128,14 +133,14 @@ private:
     bool isReadyFrontendPoses();
 
     // Events
-    std::vector<dvs_msgs::Event> event_subset_;
-    void getEventSubset(const ros::Time& t_beg, const ros::Time& t_end);
+    std::vector<DvsEvent> event_subset_;
+    void getEventSubset(const rclcpp::Time& t_beg, const rclcpp::Time& t_end);
 
     // Front-end angular velocity & integration
     PoseEntry pose_latest_;
     AngVelMap frontend_ang_vel_;
     AngVelEntry ang_vel_prev_;
-    AngVelMap getAngVelSubset(const ros::Time& t_beg, const ros::Time& t_end);
+    AngVelMap getAngVelSubset(const rclcpp::Time& t_beg, const rclcpp::Time& t_end);
     // Integrate frontend angular velocities into absolute poses
     PoseMap integrateAngVel(const PoseEntry& pose_init, const AngVelMap& ang_vel_subset);
 
@@ -144,7 +149,7 @@ private:
     void setupProblemAndOptimize_gsl();
 
     // Pointer to the total event vector (stored in the frontend)
-    std::vector<dvs_msgs::Event>* events_ptr_;
+    std::vector<DvsEvent>* events_ptr_;
 
     // Event warper: compute IWE and deriv
     EventWarper* event_warper_;

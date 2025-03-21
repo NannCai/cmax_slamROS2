@@ -1,6 +1,6 @@
 #include "cmax_slam.h"
 #include <glog/logging.h>
-#include <camera_info_manager/camera_info_manager.h>
+#include <camera_info_manager/camera_info_manager.hpp>
 
 #include <string>
 #include <sstream>
@@ -11,39 +11,58 @@ namespace cmax_slam {
 
 static const double rad2degFactor = 180.0 * M_1_PI;
 
-CMaxSLAM::CMaxSLAM(ros::NodeHandle& nh)
-    : nh_(nh)
-    , pnh_("~")
+
+CMaxSLAM::CMaxSLAM(rclcpp::Node::SharedPtr node)
+    : node_(node)
+    // , node_(node->create_sub_node(""))
+
+
 
 {
     // Load test configurations
     // Topic info
-    const std::string events_topic = pnh_.param<std::string>("events_topic", "/dvs/events");
-    const std::string camera_info_topic = pnh_.param<std::string>("camera_info_topic", "/dvs/camera_info");
+    // const std::string events_topic = node_.param<std::string>("events_topic", "/event_camera/events");
+    // const std::string camera_info_topic = node_.param<std::string>("camera_info_topic", "/event_camera/camera_info");
+
+    const std::string events_topic = node_->declare_parameter<std::string>("events_topic", "/event_camera/events");
+    const std::string camera_info_topic = node_->declare_parameter<std::string>("camera_info_topic", "/event_camera/camera_info");  // TODO
+
 
     LOG(INFO) << "Event topic: " << events_topic;
     LOG(INFO) << "Camera info topic: " << camera_info_topic;
 
     // Set up subscribers
-    event_sub_ = nh_.subscribe(events_topic, 0, &CMaxSLAM::eventsCallback, this);
-    camera_info_sub_ = nh_.subscribe(camera_info_topic, 0, &CMaxSLAM::cameraInfoCallback, this);
+    // event_sub_ = nh_.subscribe(events_topic, 0, &CMaxSLAM::eventsCallback, this);
+    const int qsize = 1000;
+    auto qos = rclcpp::QoS(rclcpp::KeepLast(qsize))
+                .best_effort()
+                .durability_volatile();
+    event_sub_ = node_->create_subscription<event_camera_msgs::msg::EventPacket>(
+      "/event_camera/events", qos,
+      std::bind(
+        &CMaxSLAM::eventsCallback, this, std::placeholders::_1));
+
+    // camera_info_sub_ = nh_.subscribe(camera_info_topic, 0, &CMaxSLAM::cameraInfoCallback, this);
+    camera_info_sub_ = node_->create_subscription<sensor_msgs::msg::CameraInfo>(
+        camera_info_topic, 10,
+        std::bind(&CMaxSLAM::cameraInfoCallback, this, std::placeholders::_1));
     got_camera_info_ = false;
 
     // Load prcessing options
     OptionsProcess process_opt;
-    process_opt.contrast_measure = pnh_.param<int>("contrast_measure", 0);
+    process_opt.contrast_measure = node_->declare_parameter<int>("contrast_measure", 0);
 
     LOG(INFO) << "*************** Processing options ******************";
     LOG(INFO) << "Contrast Measure: " << ((process_opt.contrast_measure == 0)? "Variance": "Mean Square");
 
     // Load front-end configurations
     front_end_params_.process_opt = process_opt;
-    front_end_params_.num_events_per_packet = pnh_.param<int>("num_events_per_packet", 30000);
-    front_end_params_.dt_ang_vel = pnh_.param<double>("dt_ang_vel", 0.02);
-    front_end_params_.warp_opt.blur_sigma = pnh_.param<double>("frontend_blur_sigma", 1.0);
-    front_end_params_.warp_opt.event_batch_size = pnh_.param<int>("event_batch_size", 100);
-    front_end_params_.warp_opt.event_sample_rate = pnh_.param<int>("frontend_event_sample_rate", 1);
-    front_end_params_.data_opt.show_iwe = pnh_.param<bool>("show_local_iwe", false);
+    front_end_params_.num_events_per_packet = node_->declare_parameter<int>("num_events_per_packet", 30000);
+    front_end_params_.dt_ang_vel = node_->declare_parameter<double>("dt_ang_vel", 0.02);
+    front_end_params_.warp_opt.blur_sigma = node_->declare_parameter<double>("frontend_blur_sigma", 1.0);
+    front_end_params_.warp_opt.event_batch_size = node_->declare_parameter<int>("event_batch_size", 100);
+    front_end_params_.warp_opt.event_sample_rate = node_->declare_parameter<int>("frontend_event_sample_rate", 1);
+    front_end_params_.data_opt.show_iwe = node_->declare_parameter<bool>("show_local_iwe", false);
 
     LOG(INFO) << "*************** Front-end params ******************";
     LOG(INFO) << "frontend_blur_sigma: " << front_end_params_.warp_opt.blur_sigma;
@@ -52,21 +71,21 @@ CMaxSLAM::CMaxSLAM(ros::NodeHandle& nh)
 
     // Load back-end configurations
     back_end_params_.process_opt = process_opt;
-    back_end_params_.sliding_window_opt.time_window_size = pnh_.param<double>("backend_time_window_size", 0.2);
-    back_end_params_.sliding_window_opt.sliding_window_stride = pnh_.param<double>("backend_sliding_window_stride", 0.1);
-    back_end_params_.warp_opt.blur_sigma = pnh_.param<double>("backend_blur_sigma", 1.0);
+    back_end_params_.sliding_window_opt.time_window_size = node_->declare_parameter<double>("backend_time_window_size", 0.2);
+    back_end_params_.sliding_window_opt.sliding_window_stride = node_->declare_parameter<double>("backend_sliding_window_stride", 0.1);
+    back_end_params_.warp_opt.blur_sigma = node_->declare_parameter<double>("backend_blur_sigma", 1.0);
     back_end_params_.warp_opt.event_batch_size = front_end_params_.warp_opt.event_batch_size;
-    back_end_params_.warp_opt.event_sample_rate = pnh_.param<int>("backend_event_sample_rate", 1);
-    back_end_params_.traj_opt.dt_knots = pnh_.param<double>("dt_knots", 0.1);
-    back_end_params_.traj_opt.spline_degree = pnh_.param<int>("spline_degree", 1);
-    back_end_params_.data_opt.show_iwe = pnh_.param<bool>("show_pano_map", true);
-    back_end_params_.map_opt.pano_height = pnh_.param<int>("pano_height", 1024);
+    back_end_params_.warp_opt.event_sample_rate = node_->declare_parameter<int>("backend_event_sample_rate", 1);
+    back_end_params_.traj_opt.dt_knots = node_->declare_parameter<double>("dt_knots", 0.1);
+    back_end_params_.traj_opt.spline_degree = node_->declare_parameter<int>("spline_degree", 1);
+    back_end_params_.data_opt.show_iwe = node_->declare_parameter<bool>("show_pano_map", true);
+    back_end_params_.map_opt.pano_height = node_->declare_parameter<int>("pano_height", 1024);
     back_end_params_.map_opt.pano_width = 2 * back_end_params_.map_opt.pano_height;
-    back_end_params_.map_opt.Y_angle = pnh_.param<double>("Y_angle", 0.0);
-    back_end_params_.map_opt.backend_min_ev_rate = pnh_.param<int>("backend_min_ev_rate", 10);
-    back_end_params_.map_opt.max_update_times = pnh_.param<int>("max_update_times", 10);
-    back_end_params_.draw_FOV = pnh_.param<bool>("draw_FOV", false);
-    back_end_params_.gamma = pnh_.param<double>("gamma", 0.75);
+    back_end_params_.map_opt.Y_angle = node_->declare_parameter<double>("Y_angle", 0.0);
+    back_end_params_.map_opt.backend_min_ev_rate = node_->declare_parameter<int>("backend_min_ev_rate", 10);
+    back_end_params_.map_opt.max_update_times = node_->declare_parameter<int>("max_update_times", 10);
+    back_end_params_.draw_FOV = node_->declare_parameter<bool>("draw_FOV", false);
+    back_end_params_.gamma = node_->declare_parameter<double>("gamma", 0.75);
 
     LOG(INFO) << "*************** Back-end params ******************";
     LOG(INFO) << "time_window_size: " << back_end_params_.sliding_window_opt.time_window_size;
@@ -83,10 +102,10 @@ CMaxSLAM::CMaxSLAM(ros::NodeHandle& nh)
     LOG(INFO) << "gamma = " << back_end_params_.gamma;
 
     // New a angular velocity estimator (the front-end runs in the main thread)
-    ang_vel_estimator_ = new AngVelEstimator(&nh_);
+    ang_vel_estimator_ = new AngVelEstimator(node);
 
     // New a pose graph optimizer
-    pose_graph_optimizer_ = new PoseGraphOptimizer(&nh_);
+    pose_graph_optimizer_ = new PoseGraphOptimizer(node);
 
     // Initialize the back-end thread and launch
     pose_graph_optim_ = new std::thread(&PoseGraphOptimizer::Run, pose_graph_optimizer_);
@@ -94,6 +113,8 @@ CMaxSLAM::CMaxSLAM(ros::NodeHandle& nh)
     // Set the pointer to each other
     ang_vel_estimator_->setBackend(pose_graph_optimizer_);
     pose_graph_optimizer_->setFrontend(ang_vel_estimator_);
+
+
 }
 
 CMaxSLAM::~CMaxSLAM()
@@ -119,17 +140,16 @@ void CMaxSLAM::precomputeBearingVectors()
     }
 }
 
-void CMaxSLAM::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info)
+void CMaxSLAM::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr camera_info)
 {
     if(!got_camera_info_)
     {
-        ROS_INFO("Loading camera information");
+        RCLCPP_INFO(node_->get_logger(), "Loading camera information");
         cam.fromCameraInfo(camera_info);
         got_camera_info_ = true;
 
-        ROS_INFO("Camera info got");
-        camera_info_sub_.shutdown(); // no need to listen to this topic any more
-
+        RCLCPP_INFO(node_->get_logger(), "Camera info got");
+        camera_info_sub_.reset(); // no need to listen to this topic any more
         // Initialze the front-end
         precomputeBearingVectors();
         ang_vel_estimator_->initialize(&cam, front_end_params_, precomputed_bearing_vectors);
@@ -141,23 +161,43 @@ void CMaxSLAM::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camer
                                           back_end_params_,
                                           &(ang_vel_estimator_->events_),
                                           &precomputed_bearing_vectors);
+        RCLCPP_INFO(node_->get_logger(), "Intialize the back-end");
+
     }
 }
 
-void CMaxSLAM::eventsCallback(const dvs_msgs::EventArray::ConstPtr &msg)
+void CMaxSLAM::eventsCallback(const event_camera_msgs::msg::EventPacket::SharedPtr msg)
 {
     if(!got_camera_info_)
     {
-        ROS_ERROR("Received events but camera info is still missing");
+        RCLCPP_ERROR(node_->get_logger(), "Received events but camera info is still missing");
         return;
     }
 
-    for (auto ev = msg->events.begin(); ev < msg->events.end();
+
+    auto decoder = factory.getInstance(*msg);
+    if (!decoder) return;
+    decoder->setTimeMultiplier(1);
+
+    decoder->decode(*msg, &batch_processor_);
+    std::vector<DvsEvent> event_subset = batch_processor_.events();
+    batch_processor_.clear();
+
+
+    // for (auto ev = msg->events.begin(); ev < msg->events.end();
+    //      ev += front_end_params_.warp_opt.event_sample_rate)
+    // {
+    //     // Push events into the frontend, which will pass them to the backend then.
+    //     ang_vel_estimator_->pushEvent(*ev);
+    // }
+
+    for (auto ev = event_subset.begin(); ev < event_subset.end();  // Changed from msg->events to event_subset
          ev += front_end_params_.warp_opt.event_sample_rate)
     {
         // Push events into the frontend, which will pass them to the backend then.
-        ang_vel_estimator_->pushEvent(*ev);
+        ang_vel_estimator_->pushEvent(*ev);  // Now using decoded events from event_subset
     }
+
 }
 
 }

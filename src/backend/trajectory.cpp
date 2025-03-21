@@ -7,8 +7,8 @@ namespace cmax_slam {
 PoseEntry Trajectory::interpPoseMid(const PoseEntry& p1, const PoseEntry& p2)
 {
     // Load two poses
-    const ros::Duration dt = p2.first - p1.first;
-    ros::Time t_mid = p1.first + dt * 0.5;
+    const rclcpp::Duration dt = p2.first - p1.first;
+    rclcpp::Time t_mid = p1.first + dt * 0.5;
     const Sophus::SO3d R1 = p1.second;
     const Sophus::SO3d R2 = p2.second;
 
@@ -23,13 +23,13 @@ PoseEntry Trajectory::interpPoseMid(const PoseEntry& p1, const PoseEntry& p2)
 /*********************** Linear Spline ********************************/
 LinearTrajectory::LinearTrajectory(const TrajectorySettings& config)
     :spline_(SO3_Spline_Traj(int64_t(1e9 * config.dt_knots),
-                             config.t_beg.toNSec()))
+                             config.t_beg.nanoseconds()))
 {
     // Get trajectory configuration
-    t_beg_ = config.t_beg.toSec();
+    t_beg_ = config.t_beg.seconds();
     dt_knots_ = config.dt_knots;
 
-    t_beg_ns_ = config.t_beg.toNSec();
+    t_beg_ns_ = config.t_beg.nanoseconds();
     dt_knots_ns_ = 1e9 * dt_knots_;
 
     VLOG(4) << "New linear trajectory generated: "
@@ -39,12 +39,12 @@ LinearTrajectory::LinearTrajectory(const TrajectorySettings& config)
 
 LinearTrajectory::LinearTrajectory(PoseMap &poses, const TrajectorySettings& config)
     :spline_(SO3_Spline_Traj(int64_t(1e9 * config.dt_knots),
-                             config.t_beg.toNSec()))
+                             config.t_beg.nanoseconds()))
 {
     // Get trajectory configuration
-    t_beg_ = config.t_beg.toSec();
+    t_beg_ = config.t_beg.seconds();
     dt_knots_ = config.dt_knots;
-    t_beg_ns_ = config.t_beg.toNSec();
+    t_beg_ns_ = config.t_beg.nanoseconds();
     dt_knots_ns_ = 1e9 * dt_knots_;
 
     VLOG(4) << "New linear trajectory generated: "
@@ -83,10 +83,10 @@ void LinearTrajectory::pushbackCtrlPoses(const std::vector<Sophus::SO3d> &cps)
 }
 
 
-Sophus::SO3d LinearTrajectory::evaluate(const ros::Time &t, int* start_idx,
+Sophus::SO3d LinearTrajectory::evaluate(const rclcpp::Time &t, int* start_idx,
                                         cv::Mat *jacobian)
 {
-    int64_t nsec = t.toNSec();
+    int64_t nsec = t.nanoseconds();
     Sophus::SO3d R;
     if (jacobian != nullptr && start_idx != nullptr)
     {
@@ -153,7 +153,7 @@ std::vector<Sophus::SO3d> LinearTrajectory::fitCtrlPoses(PoseMap& poses,
     for (auto const& dp: poses_incre)
     {
         // Compute matrix N
-        double t = dp.first.toSec();
+        double t = dp.first.seconds();
         // Index of the first control pose that affects p(t)
         int t_i = std::floor((t - t_beg)/dt_knots_);
         // u = (t - t_i) / (t_{i+1} - t_i)s
@@ -192,11 +192,11 @@ std::vector<Sophus::SO3d> LinearTrajectory::fitCtrlPoses(PoseMap& poses,
 }
 
 void LinearTrajectory::initializeCtrlPoses(PoseMap& poses,
-                                           const ros::Time& t_beg,
-                                           const ros::Time& t_end)
+                                           const rclcpp::Time& t_beg,
+                                           const rclcpp::Time& t_end)
 {
     // Compute the number of newly generated control poses
-    const double time_interval = (t_end - t_beg).toSec();
+    const double time_interval = (t_end - t_beg).seconds();
     const int num_cps = std::round(time_interval/dt_knots_) + 1;
 
     // Fit control poses with the given poses
@@ -208,13 +208,13 @@ void LinearTrajectory::initializeCtrlPoses(PoseMap& poses,
 }
 
 std::vector<Sophus::SO3d> LinearTrajectory::generateCtrlPoses(PoseMap& poses,
-                                                              const ros::Time& t_beg,
-                                                              const ros::Time& t_end)
+                                                              const rclcpp::Time& t_beg,
+                                                              const rclcpp::Time& t_end)
 {
     // Compute the number of newly generated control poses
-    const int num_cps = std::round((t_end - t_beg).toSec()/dt_knots_) + 1;
+    const int num_cps = std::round((t_end - t_beg).seconds()/dt_knots_) + 1;
     // Fit control poses with the given poses
-    std::vector<Sophus::SO3d> ctrl_poses = fitCtrlPoses(poses, t_beg.toSec(), num_cps);
+    std::vector<Sophus::SO3d> ctrl_poses = fitCtrlPoses(poses, t_beg.seconds(), num_cps);
     return ctrl_poses;
 }
 
@@ -266,13 +266,13 @@ LinearTrajectory* LinearTrajectory::CopyAndIncrementalUpdate(const std::vector<E
 
 CubicTrajectory::CubicTrajectory(const TrajectorySettings& config)
     :spline_(SO3_Spline_Traj(int64_t(1e9 * config.dt_knots),
-                             config.t_beg.toNSec()))
+                             config.t_beg.nanoseconds()))
 {
     // Get trajectory configuration
-    t_beg_ = config.t_beg.toSec();
+    t_beg_ = config.t_beg.seconds();
     dt_knots_ = config.dt_knots;
 
-    t_beg_ns_ = config.t_beg.toNSec();
+    t_beg_ns_ = config.t_beg.nanoseconds();
     dt_knots_ns_ = 1e9 * dt_knots_;
 
     VLOG(4) << "New Cubic Trajectory generated: "
@@ -282,13 +282,13 @@ CubicTrajectory::CubicTrajectory(const TrajectorySettings& config)
 
 CubicTrajectory::CubicTrajectory(PoseMap &poses, const TrajectorySettings& config)
     :spline_(SO3_Spline_Traj(int64_t(1e9 * config.dt_knots),
-                             config.t_beg.toNSec()))
+                             config.t_beg.nanoseconds()))
 {
     // Get trajectory configuration
-    t_beg_ = config.t_beg.toSec();
+    t_beg_ = config.t_beg.seconds();
     dt_knots_ = config.dt_knots;
 
-    t_beg_ns_ = config.t_beg.toNSec();
+    t_beg_ns_ = config.t_beg.nanoseconds();
     dt_knots_ns_ = 1e9 * dt_knots_;
 
     VLOG(4) << "New Cubic Trajectory generated: "
@@ -326,10 +326,10 @@ void CubicTrajectory::pushbackCtrlPoses(const std::vector<Sophus::SO3d> &cps)
     for (auto const& p : cps) { spline_.knotsPushBack(p); }
 }
 
-Sophus::SO3d CubicTrajectory::evaluate(const ros::Time &t, int *start_idx,
+Sophus::SO3d CubicTrajectory::evaluate(const rclcpp::Time &t, int *start_idx,
                                                          cv::Mat *jacobian)
 {
-    int64_t nsec = t.toNSec();
+    int64_t nsec = t.nanoseconds();
     Sophus::SO3d R;
     if (jacobian != nullptr && start_idx != nullptr)
     {
@@ -426,7 +426,7 @@ std::vector<Sophus::SO3d> CubicTrajectory::fitCtrlPoses(PoseMap& poses,
     for (auto const& dp: poses_incre)
     {
         /* Compute matrix N */
-        double t = dp.first.toSec();
+        double t = dp.first.seconds();
         // Index of the first control pose that influence p(t)
         int t_i = std::floor((t - t_beg)/dt_knots_);
         // u = (t - t_i) / (t_{i+1} - t_i)s
@@ -464,11 +464,11 @@ std::vector<Sophus::SO3d> CubicTrajectory::fitCtrlPoses(PoseMap& poses,
 }
 
 void CubicTrajectory::initializeCtrlPoses(PoseMap& poses,
-                                          const ros::Time& t_beg,
-                                          const ros::Time& t_end)
+                                          const rclcpp::Time& t_beg,
+                                          const rclcpp::Time& t_end)
 {
     // Compute the number of newly generated control poses
-    const int num_cps = std::round((t_end - t_beg).toSec()/dt_knots_) + 3;
+    const int num_cps = std::round((t_end - t_beg).seconds()/dt_knots_) + 3;
     // Fit control poses with the given poses
     std::vector<Sophus::SO3d> ctrl_poses = fitCtrlPoses(poses,t_beg_,num_cps);
     // Push back to this trajectory
@@ -478,13 +478,13 @@ void CubicTrajectory::initializeCtrlPoses(PoseMap& poses,
 }
 
 std::vector<Sophus::SO3d> CubicTrajectory::generateCtrlPoses(PoseMap& poses,
-                                                             const ros::Time& t_beg,
-                                                             const ros::Time& t_end)
+                                                             const rclcpp::Time& t_beg,
+                                                             const rclcpp::Time& t_end)
 {
     // Compute the number of newly generated control poses
-    const int num_cps = std::round((t_end - t_beg).toSec()/dt_knots_) + 3;
+    const int num_cps = std::round((t_end - t_beg).seconds()/dt_knots_) + 3;
     // Fit control poses with the given poses
-    std::vector<Sophus::SO3d> ctrl_poses = fitCtrlPoses(poses,t_beg.toSec(),num_cps);
+    std::vector<Sophus::SO3d> ctrl_poses = fitCtrlPoses(poses,t_beg.seconds(),num_cps);
     return ctrl_poses;
 }
 

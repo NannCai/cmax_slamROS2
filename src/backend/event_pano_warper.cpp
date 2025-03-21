@@ -1,5 +1,5 @@
 ﻿#include "backend/event_pano_warper.h"
-#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/msg/imu.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <glog/logging.h>
 
@@ -165,7 +165,7 @@ void EventWarper::updateAlpha()
 }
 
 void EventWarper::computeImageOfWarpedEvents(Trajectory* traj,
-                                             std::vector<dvs_msgs::Event>* event_subset,
+                                             std::vector<DvsEvent>* event_subset,
                                              cv::Mat* iwe,
                                              std::vector<cv::Mat>* iwe_deriv)
 {
@@ -231,15 +231,15 @@ void EventWarper::computeImageOfWarpedEvents(Trajectory* traj,
 }
 
 void EventWarper::warpAndAccumulateEvents(Trajectory *traj,
-                                          std::vector<dvs_msgs::Event>::iterator event_begin,
-                                          std::vector<dvs_msgs::Event>::iterator event_end,
+                                          std::vector<DvsEvent>::iterator event_begin,
+                                          std::vector<DvsEvent>::iterator event_end,
                                           std::vector<cv::Mat>* iwe_deriv)
 {
     // Share a common pose for all events in the batch
-    ros::Time time_first = event_begin->ts;
-    ros::Time time_last = (event_end-1)->ts;
-    ros::Duration time_dt = time_last - time_first;
-    ros::Time time_batch = time_first + time_dt * 0.5;
+    rclcpp::Time time_first = rclcpp::Time(event_begin->ts);
+    rclcpp::Time time_last = rclcpp::Time((event_end-1)->ts);
+    rclcpp::Duration time_dt = time_last - time_first;
+    rclcpp::Time time_batch = time_first + time_dt * 0.5;
 
     Sophus::SO3d so3;
 
@@ -295,7 +295,7 @@ void EventWarper::warpAndAccumulateEvents(Trajectory *traj,
         // if warped point is within the image, accumulate polarity
         if (1 <= xx && xx < IL_old_.cols-2 && 1 <= yy && yy < IL_old_.rows-2)
         {
-            if (ev->ts < t_next_win_beg_) // check if this event will be out of date
+            if (rclcpp::Time(ev->ts) < t_next_win_beg_) // check if this event will be out of date
             {
                 IL_old_.at<float>(yy  ,xx  ) += (1.f-dx)*(1.f-dy);
                 IL_old_.at<float>(yy  ,xx+1) += dx*(1.f-dy);

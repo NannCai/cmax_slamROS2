@@ -1,0 +1,56 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/nan/event_ws/install/rosbag2_compression_zstd/include/**",
+        "/home/nan/event_ws/install/mcap_vendor/include/**",
+        "/home/nan/event_ws/install/rosbag2_storage_default_plugins/include/**",
+        "/home/nan/event_ws/install/rosbag2_transport/include/**",
+        "/home/nan/event_ws/install/rosbag2_compression/include/**",
+        "/home/nan/event_ws/install/rosbag2_cpp/include/**",
+        "/home/nan/event_ws/install/shared_queues_vendor/include/**",
+        "/home/nan/event_ws/install/rosbag2_test_common/include/**",
+        "/home/nan/event_ws/install/rosbag2_storage_mcap_testdata/include/**",
+        "/home/nan/event_ws/install/rosbag2_storage/include/**",
+        "/home/nan/event_ws/install/rosbag2_interfaces/include/**",
+        "/home/nan/event_ws/install/prophesee_event_msgs/include/**",
+        "/home/nan/event_ws/install/event_camera_codecs/include/**",
+        "/home/nan/event_ws/install/event_camera_msgs/include/**",
+        "/home/nan/event_ws/install/dvs_msgs/include/**",
+        "/home/nan/ros2_ws/install/motion_capture_tracking_interfaces/include/**",
+        "/home/nan/ros2_ws/install/crazyflie_interfaces/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/nan/event_ws/src/cmax_slam/include/**",
+        "/home/nan/event_ws/src/dvs-integrator/include/**",
+        "/home/nan/event_ws/src/event_camera_codecs/include/**",
+        "/home/nan/event_ws/src/event_camera_py/include/**",
+        "/home/nan/event_ws/src/event_camera_renderer/include/**",
+        "/home/nan/event_ws/src/event_camera_tools/include/**",
+        "/home/nan/event_ws/src/libcaer_driver/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_compression/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_compression_zstd/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_cpp/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_performance/rosbag2_performance_benchmarking/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_storage/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_storage_default_plugins/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_storage_mcap/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_test_common/include/**",
+        "/home/nan/event_ws/src/rosbag2/rosbag2_transport/include/**",
+        "/home/nan/event_ws/src/rosbag2_composable_recorder/include/**",
+        "/home/nan/event_ws/src/simple_image_recon/include/**",
+        "/home/nan/event_ws/src/simple_image_recon_lib/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-arm64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

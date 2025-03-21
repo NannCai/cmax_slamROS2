@@ -1,0 +1,24 @@
+cmax_slam:
+  ros__parameters:
+    events_topic: "/event_camera/events"
+    camera_info_topic: "/event_camera/camera_info"
+    contrast_measure: 0
+    frontend_blur_sigma: 1.0
+    backend_blur_sigma: 1.0
+    event_batch_size: 100
+    frontend_event_sample_rate: 1
+    backend_event_sample_rate: 1
+    num_events_per_packet: 10000
+    dt_ang_vel: 0.01
+    show_local_iwe: true
+    backend_time_window_size: 0.2
+    backend_sliding_window_stride: 0.1
+    spline_degree: 1
+    dt_knots: 0.05
+    pano_height: 512
+    backend_min_ev_rate: 10000
+    max_update_times: 200
+    Y_angle: 0.0
+    gamma: 0.75
+    show_pano_map: true
+    draw_FOV: true

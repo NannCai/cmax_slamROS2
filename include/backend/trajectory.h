@@ -5,20 +5,20 @@
 #include <assert.h>
 
 #include <opencv2/core.hpp>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <Eigen/Core>
 
 #include "basalt/spline/so3_spline.h"
 
-typedef std::pair<ros::Time, Sophus::SO3d> PoseEntry;
-typedef std::map<ros::Time, Sophus::SO3d> PoseMap;
+typedef std::pair<rclcpp::Time, Sophus::SO3d> PoseEntry;
+typedef std::map<rclcpp::Time, Sophus::SO3d> PoseMap;
 typedef std::vector<PoseEntry> PoseArray;
 
 namespace cmax_slam {
 
 struct TrajectorySettings{
-    ros::Time t_beg;
-    ros::Time t_end;
+    rclcpp::Time t_beg;
+    rclcpp::Time t_end;
     double dt_knots;
 };
 
@@ -46,7 +46,7 @@ public:
     virtual void pushbackCtrlPoses(const std::vector<Sophus::SO3d> &cps) = 0;
 
     // Evaluate trajectory at some timestamp
-    virtual Sophus::SO3d evaluate(const ros::Time& t, int* idx_beg = nullptr,
+    virtual Sophus::SO3d evaluate(const rclcpp::Time& t, int* idx_beg = nullptr,
                                   cv::Mat* jacobian = nullptr) = 0;
 
     virtual void incrementalUpdate(const std::vector<Eigen::Vector3d>& drotv, const int& idx_beg) = 0;
@@ -57,8 +57,8 @@ public:
 
     // Generate control poses with new poses and time interval (mostly used for trajectory extension)
     virtual std::vector<Sophus::SO3d> generateCtrlPoses(PoseMap& poses,
-                                                        const ros::Time& t_beg,
-                                                        const ros::Time& t_end) = 0;
+                                                        const rclcpp::Time& t_beg,
+                                                        const rclcpp::Time& t_end) = 0;
 
 protected:
     // Trajectory configuration
@@ -68,8 +68,8 @@ protected:
     /* Spline initializatoin */
     // Use given poses to compute initial control poses for the trajectory
     virtual void initializeCtrlPoses(PoseMap& poses,
-                                     const ros::Time& t_beg,
-                                     const ros::Time& t_end) = 0;
+                                     const rclcpp::Time& t_beg,
+                                     const rclcpp::Time& t_end) = 0;
     // Fit control poses with the given poses (mostly called by the above functions)
     virtual std::vector<Sophus::SO3d> fitCtrlPoses(PoseMap& poses, const double t_beg, const int num_cps) = 0;
 
@@ -106,7 +106,7 @@ public:
     void pushbackCtrlPoses(const std::vector<Sophus::SO3d> &cps) override;
 
     // Query pose at given timestamp
-    Sophus::SO3d evaluate(const ros::Time &t, int* idx_beg = nullptr,
+    Sophus::SO3d evaluate(const rclcpp::Time &t, int* idx_beg = nullptr,
                           cv::Mat *jacobian = nullptr) override; // jaocbian: 3X6
 
     // Update the trajectory by incremental rotation (delta R)
@@ -119,14 +119,14 @@ public:
 
     // Generate control poses with new poses and time interval (mostly used for trajectory extension)
     virtual std::vector<Sophus::SO3d> generateCtrlPoses(PoseMap& poses,
-                                                        const ros::Time& t_beg,
-                                                        const ros::Time& t_end) override;
+                                                        const rclcpp::Time& t_beg,
+                                                        const rclcpp::Time& t_end) override;
 
 protected:
     // Initialize control poses for this trajectory, with the poses on the trajectory
     void initializeCtrlPoses(PoseMap& poses,
-                             const ros::Time& t_beg,
-                             const ros::Time& t_end) override;
+                             const rclcpp::Time& t_beg,
+                             const rclcpp::Time& t_end) override;
 
     // Fit control poses with the given poses (mostly called by the above functions)
     virtual std::vector<Sophus::SO3d> fitCtrlPoses(PoseMap& poses, const double t_beg, const int num_cps) override;
@@ -164,7 +164,7 @@ public:
     void pushbackCtrlPoses(const std::vector<Sophus::SO3d> &cps) override;
 
     // Query pose at given timestamp
-    Sophus::SO3d evaluate(const ros::Time &t, int* idx_beg = nullptr,
+    Sophus::SO3d evaluate(const rclcpp::Time &t, int* idx_beg = nullptr,
                           cv::Mat *jacobian = nullptr) override; // jacobian: 3X12
 
     // Update the trajectory by incremental rotation (delta R)
@@ -177,14 +177,14 @@ public:
 
     // Generate control poses with new poses and time interval (mostly used for trajectory extension)
     virtual std::vector<Sophus::SO3d> generateCtrlPoses(PoseMap& poses,
-                                                        const ros::Time& t_beg,
-                                                        const ros::Time& t_end) override;
+                                                        const rclcpp::Time& t_beg,
+                                                        const rclcpp::Time& t_end) override;
 
 protected:
     // Initialize control poses for this trajectory, with the poses on the trajectory
     void initializeCtrlPoses(PoseMap& poses,
-                             const ros::Time& t_beg,
-                             const ros::Time& t_end) override;
+                             const rclcpp::Time& t_beg,
+                             const rclcpp::Time& t_end) override;
     // Fit control poses with the given poses (mostly called by the above functions)
     virtual std::vector<Sophus::SO3d> fitCtrlPoses(PoseMap& poses, const double t_beg, const int num_cps) override;
 

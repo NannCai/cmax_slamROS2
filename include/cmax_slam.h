@@ -6,10 +6,13 @@
 #include "frontend/ang_vel_estimator.h"
 #include "backend/pose_graph_optimizer.h"
 
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/Image.h>
-#include <dvs_msgs/Event.h>
-#include <dvs_msgs/EventArray.h>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
+// #include <dvs_msgs/Event.h>
+// #include <dvs_msgs/EventArray.h>
+#include <event_camera_codecs/decoder_factory.h>
+#include <event_camera_msgs/msg/event_packet.hpp>
+#include "event_adapter.hpp"
 
 namespace cmax_slam {
 
@@ -17,7 +20,8 @@ class CMaxSLAM
 {
 public:
     // Constructor
-    CMaxSLAM(ros::NodeHandle& nh);
+    // CMaxSLAM(ros::NodeHandle& nh);
+    CMaxSLAM(rclcpp::Node::SharedPtr node);
     // Deconstructor
     ~CMaxSLAM();
 
@@ -27,14 +31,15 @@ public:
 
 private:
     // Node handle used to subscribe to ROS topics
-    ros::NodeHandle nh_;
+    rclcpp::Node::SharedPtr node_;
     // Private node handle for reading parameters
-    ros::NodeHandle pnh_;
+    rclcpp::Node::SharedPtr pnh_;
 
     // Subscribers and callbacks
-    ros::Subscriber event_sub_, camera_info_sub_;
-    void eventsCallback(const dvs_msgs::EventArray::ConstPtr& msg);
-    void cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info);
+    rclcpp::Subscription<event_camera_msgs::msg::EventPacket>::SharedPtr event_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
+    void eventsCallback(const event_camera_msgs::msg::EventPacket::SharedPtr msg);
+    void cameraInfoCallback(const sensor_msgs::msg::CameraInfo::SharedPtr camera_info);
     bool got_camera_info_;
 
     // Precompute bearing vectors and share with the front-end and the back-end
@@ -49,5 +54,12 @@ private:
     PoseGraphOptimizer* pose_graph_optimizer_; // Back-end
 
     std::thread* pose_graph_optim_; // Thread for the back-end
+
+
+    EventBatchProcessor batch_processor_;
+    rclcpp::Subscription<event_camera_msgs::msg::EventPacket>::SharedPtr eventSub_;
+    event_camera_codecs::DecoderFactory<event_camera_msgs::msg::EventPacket, EventBatchProcessor> factory;
+
+
 };
 }

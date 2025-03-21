@@ -15,8 +15,8 @@ In a new terminal, use [davis_ros_driver](https://github.com/uzh-rpg/rpg_dvs_ros
     source devel/setup.bash
     rosrun davis_ros_driver davis_ros_driver
 
-This should read the calibration file corresponding to the serial number of your DAVIS camera and publish its content in topic `/dvs/camera_info`. 
-It should also publish event data in the topic `/dvs/events`.
+This should read the calibration file corresponding to the serial number of your DAVIS camera and publish its content in topic `/event_camera/camera_info`. 
+It should also publish event data in the topic `/event_camera/events`.
 
 ### Run CMax-SLAM
 

@@ -2,9 +2,9 @@
 #include "backend/trajectory.h"
 #include "backend/global_optim_contrast_gsl.h"
 
-#include <camera_info_manager/camera_info_manager.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <sensor_msgs/Image.h>
+#include <camera_info_manager/camera_info_manager.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
+#include <sensor_msgs/msg/image.hpp>
 
 #include <opencv2/highgui.hpp>
 #include <Eigen/Core>
@@ -20,9 +20,10 @@
 
 namespace cmax_slam {
 
-PoseGraphOptimizer::PoseGraphOptimizer(ros::NodeHandle* nh): nh_(nh), it_(*nh)
+PoseGraphOptimizer::PoseGraphOptimizer(rclcpp::Node::SharedPtr node) : node_(node)
 {
-    image_pub_ = it_.advertise("pano_map", 1);
+    it_ = std::make_shared<image_transport::ImageTransport>(node_);
+    image_pub_ = it_->advertise("pano_map", 1);
 }
 
 PoseGraphOptimizer::~PoseGraphOptimizer()
@@ -34,7 +35,7 @@ PoseGraphOptimizer::~PoseGraphOptimizer()
 
 void PoseGraphOptimizer::initialize(int camera_width, int camera_height,
                                     const PoseGraphParams &opt,
-                                    std::vector<dvs_msgs::Event>* ptr,
+                                    std::vector<DvsEvent>* ptr,
                                     std::vector<cv::Point3d>* precomputed_bearing_vectors_ptr)
 {
     // Load params
@@ -46,8 +47,16 @@ void PoseGraphOptimizer::initialize(int camera_width, int camera_height,
                               precomputed_bearing_vectors_ptr);
 
     // Initialize time cursors for sliding window
-    win_size_ = ros::Duration(params.sliding_window_opt.time_window_size);
-    win_stride_ = ros::Duration(params.sliding_window_opt.sliding_window_stride);
+    // win_size_ = ros::Duration(params.sliding_window_opt.time_window_size);
+    // win_stride_ = ros::Duration(params.sliding_window_opt.sliding_window_stride);
+
+
+    win_size_ = rclcpp::Duration::from_seconds(params.sliding_window_opt.time_window_size);
+    win_stride_ = rclcpp::Duration::from_seconds(params.sliding_window_opt.sliding_window_stride);
+    // win_size_ = rclcpp::Duration(params.sliding_window_opt.time_window_size);  
+    // win_stride_ = rclcpp::Duration(params.sliding_window_opt.sliding_window_stride);
+
+
     time_window_initialized_ = false;
     first_time_window_ = true;
 
@@ -70,7 +79,7 @@ void PoseGraphOptimizer::initialize(int camera_width, int camera_height,
 }
 
 
-void PoseGraphOptimizer::pushAngVel(const ros::Time& ts,
+void PoseGraphOptimizer::pushAngVel(const rclcpp::Time& ts,
                                     const Eigen::Vector3d& ang_vel)
 {
     if(!time_window_initialized_)
@@ -128,21 +137,21 @@ bool PoseGraphOptimizer::isReadyFrontendPoses()
     return false;
 }
 
-void PoseGraphOptimizer::getEventSubset(const ros::Time& t_beg,
-                                        const ros::Time& t_end)
+void PoseGraphOptimizer::getEventSubset(const rclcpp::Time& t_beg,
+                                        const rclcpp::Time& t_end)
 {
     std::unique_lock<std::mutex> ev_lock(mutex_events);
     // Search for the begin/end idx of the event subset through a coarse-to-fine strategy
     // 1. Search at the event packet level
-    std::map<ros::Time,int>::iterator ev_beg_iter = ev_subset_ts_map_.upper_bound(t_beg);
-    std::map<ros::Time,int>::iterator ev_end_iter = ev_subset_ts_map_.lower_bound(t_end);
+    std::map<rclcpp::Time,int>::iterator ev_beg_iter = ev_subset_ts_map_.upper_bound(t_beg);
+    std::map<rclcpp::Time,int>::iterator ev_end_iter = ev_subset_ts_map_.lower_bound(t_end);
     // 2. Search at the by-event level (Do we really need this fine searching?)
     // (1) The begin index is already very accurate, we do not need to change it
     int ev_beg_idx = ev_beg_iter->second;
     // (2) We should search for a more accurate end index
     int ev_end_idx = ev_end_iter->second;
-    const ros::Time t_end_mod = t_end-ros::Duration(1e-6); // Leave a small t_epsilon for safety
-    while (events_ptr_->at(ev_end_idx).ts > t_end_mod)
+    const rclcpp::Time t_end_mod = t_end-rclcpp::Duration::from_seconds(1e-6); // Leave a small t_epsilon for safety
+    while (rclcpp::Time(events_ptr_->at(ev_end_idx).ts) > t_end_mod)
     {
         // Move at 100 events' stride (do not need to check one by one)
         ev_end_idx -= 100;
@@ -154,7 +163,7 @@ void PoseGraphOptimizer::getEventSubset(const ros::Time& t_beg,
     }
 
     // Copy events into the event subset
-    event_subset_ = std::vector<dvs_msgs::Event>(events_ptr_->begin() + ev_beg_idx,
+    event_subset_ = std::vector<DvsEvent>(events_ptr_->begin() + ev_beg_idx,
                                                  events_ptr_->begin() + ev_end_idx);
 
     // Erase the indexes of the used evenet packt in the look-up table
@@ -164,8 +173,8 @@ void PoseGraphOptimizer::getEventSubset(const ros::Time& t_beg,
     ang_vel_estimator_->deleteOldEvents(ev_beg_idx);
 }
 
-AngVelMap PoseGraphOptimizer::getAngVelSubset(const ros::Time& t_beg,
-                                              const ros::Time& t_end)
+AngVelMap PoseGraphOptimizer::getAngVelSubset(const rclcpp::Time& t_beg,
+                                              const rclcpp::Time& t_end)
 {
     // Lock data that is accessible by both frontend and backend
     std::unique_lock<std::mutex> lock(mutex_ang_vel);
@@ -202,7 +211,7 @@ PoseMap PoseGraphOptimizer::integrateAngVel(const PoseEntry& pose_latest,
             continue;
         }
         // Compute rotation increment
-        const double dt = (ang_vel.first - pose_curr.first).toSec();
+        const double dt = (ang_vel.first - pose_curr.first).seconds();
         Eigen::Vector3d drotv = dt * ((ang_vel_prev_.second + ang_vel.second)/2.0);
 
         // Update current pose (post-multiplication)
@@ -313,7 +322,7 @@ void PoseGraphOptimizer::processTimeWindow(const AngVelMap& ang_vel_subset)
     }
 
     // Update the latest pose, to prepare for the next time window
-    pose_latest_.first = t_win_end_- ros::Duration(1e-6);
+    pose_latest_.first = t_win_end_- rclcpp::Duration::from_seconds(1e-6);
     pose_latest_.second = traj_->evaluate(pose_latest_.first);
     ts_event_image_ = t_win_end_;
 
@@ -326,9 +335,9 @@ void PoseGraphOptimizer::setUpdateTimesIG()
 {
     // Update the map storing the visit time of each pixel
     const double dt_check_update = 0.05;
-    const ros::Time t_check_update_time_end = t_win_beg_ + win_stride_;
-    for (ros::Time t_check = t_win_beg_; t_check < t_check_update_time_end;
-         t_check += ros::Duration(dt_check_update))
+    const rclcpp::Time t_check_update_time_end = t_win_beg_ + win_stride_;
+    for (rclcpp::Time t_check = t_win_beg_; t_check < t_check_update_time_end;
+         t_check += rclcpp::Duration::from_seconds(dt_check_update))
     {
         // Get pose at every 0.05s, update the visit time of the pixel within the FOV
         const Sophus::SO3d rot_check = traj_->evaluate(t_check);
@@ -377,12 +386,19 @@ void PoseGraphOptimizer::Run()
 
 void PoseGraphOptimizer::publishEventImage()
 {
-    if (image_pub_.getNumSubscribers() <= 0)
+    if (image_pub_.getNumSubscribers() <= 0) {
+        RCLCPP_INFO(node_->get_logger(), "No subscribers for pano_map");
         return;
+    }
 
     // Get the global map
     cv::Mat IG_disp;
     event_warper_->getIG(IG_disp);
+    if (IG_disp.empty()) {
+        RCLCPP_INFO(node_->get_logger(), "IG_disp is empty");
+        return;
+    }
+
     // Gamma correction
     cv::normalize(IG_disp, IG_disp, 0, 1.f, cv::NORM_MINMAX, CV_32FC1);
     cv::pow(IG_disp, params.gamma, IG_disp);
@@ -397,7 +413,7 @@ void PoseGraphOptimizer::publishEventImage()
         cv::cvtColor(IG_disp, IG_disp, CV_GRAY2BGR);
 
         // Plot the current FOV
-        ros::Time t_plot = t_win_end_ - ros::Duration(1e-6);
+        rclcpp::Time t_plot = t_win_end_ - rclcpp::Duration::from_seconds(1e-6);
         const Sophus::SO3d pose_traj = traj_->evaluate(t_plot);
         event_warper_->drawSensorFOV(IG_disp, pose_traj, cv::Vec3i(255, 0, 0));
     }
@@ -407,9 +423,10 @@ void PoseGraphOptimizer::publishEventImage()
     cv_iwe_image.encoding = params.draw_FOV ? "bgr8": "mono8";
     IG_disp.copyTo(cv_iwe_image.image);
 
-    sensor_msgs::ImagePtr msg = cv_iwe_image.toImageMsg();
+    sensor_msgs::msg::Image::SharedPtr msg = cv_iwe_image.toImageMsg();
     msg->header.stamp = ts_event_image_;
     image_pub_.publish(msg);
+    RCLCPP_INFO(node_->get_logger(), "Published pano_map image");
 }
 
 } // namespace

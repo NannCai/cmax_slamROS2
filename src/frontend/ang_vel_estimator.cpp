@@ -1,9 +1,9 @@
 #include "frontend/ang_vel_estimator.h"
 #include "utils/image_geom_util.h"
 
-#include <camera_info_manager/camera_info_manager.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <sensor_msgs/Image.h>
+#include <camera_info_manager/camera_info_manager.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <opencv2/highgui.hpp>
 #include <glog/logging.h>
 
@@ -16,11 +16,12 @@ namespace cmax_slam {
 
 static const double rad2degFactor = 180.0 * M_1_PI;
 
-AngVelEstimator::AngVelEstimator(ros::NodeHandle* nh): nh_(nh), it_(*nh)
+AngVelEstimator::AngVelEstimator(rclcpp::Node::SharedPtr node) : node_(node)
 {
     // Set publishers
-    img_pub_ = it_.advertise("local_iwe", 1);
-    ang_vel_pub_ = nh_->advertise<geometry_msgs::TwistStamped>("/dvs/angular_velocity", 1);
+    it_ = std::make_shared<image_transport::ImageTransport>(node_);
+    img_pub_ = it_->advertise("local_iwe", 1);
+    ang_vel_pub_ = node_->create_publisher<geometry_msgs::msg::TwistStamped>("/event_camera/angular_velocity", 10);
 
     // Initial value of motion parameters velocity
     ang_vel_ = cv::Point3d(0.,0.,0.);
@@ -29,7 +30,7 @@ AngVelEstimator::AngVelEstimator(ros::NodeHandle* nh): nh_(nh), it_(*nh)
 AngVelEstimator::~AngVelEstimator()
 {
     img_pub_.shutdown();
-    ang_vel_pub_.shutdown();
+    ang_vel_pub_.reset();
 }
 
 void AngVelEstimator::initialize(image_geometry::PinholeCameraModel* cam,
@@ -57,7 +58,7 @@ void AngVelEstimator::initialize(image_geometry::PinholeCameraModel* cam,
     event_subset_.reserve(val.num_events_per_packet);
 
     // Set frequency of the output angular velocity
-    dt_av_ = ros::Duration(val.dt_ang_vel);
+    dt_av_ = rclcpp::Duration::from_seconds(val.dt_ang_vel);
 
     // Setttings for sliding window
     sliding_window_initialized_ = false;
@@ -65,13 +66,13 @@ void AngVelEstimator::initialize(image_geometry::PinholeCameraModel* cam,
     VLOG(1) << "Front-end initialized";
 }
 
-void AngVelEstimator::pushEvent(const dvs_msgs::Event& event)
+void AngVelEstimator::pushEvent(const DvsEvent& event)
 {
     if (!sliding_window_initialized_)
     {
-        VLOG(1) << " [Front-end] The first event arrived at t = " << std::setprecision(19) << event.ts.toSec();
+        VLOG(1) << " [Front-end] The first event arrived at t = " << std::setprecision(19) << rclcpp::Time(event.ts).seconds();
         // Initialize sliding window (time cursors)
-        time_packet_ = event.ts + dt_av_*0.5;
+        time_packet_ = rclcpp::Time(event.ts) + dt_av_*0.5;
         time_get_subset_ = time_packet_;
         sliding_window_initialized_ = true;
     }
@@ -82,7 +83,7 @@ void AngVelEstimator::pushEvent(const dvs_msgs::Event& event)
     num_event_total_ += 1;
 
     // Get event subset info
-    if (event.ts > time_get_subset_)
+    if (rclcpp::Time(event.ts) > time_get_subset_)
     {
         // Compute the indexes of the head and tail of the event subset
         const int idx_subset_beg = std::max(num_event_total_-num_ev_half_packet_, 0);
@@ -90,7 +91,7 @@ void AngVelEstimator::pushEvent(const dvs_msgs::Event& event)
 
         // Push back into the event subset information list (front-end) and look-up table (back-end)
         event_subsets_info_.emplace_back(std::pair<int, int>(idx_subset_beg, idx_subset_end));
-        pose_graph_optimizer_->ev_subset_ts_map_.insert(std::pair<ros::Time, int>(event.ts, num_event_total_-1));
+        pose_graph_optimizer_->ev_subset_ts_map_.insert(std::pair<rclcpp::Time, int>(rclcpp::Time(event.ts), num_event_total_-1));
 
         // Update time_packet_, to prepare for the next packet
         time_get_subset_ += dt_av_;
@@ -106,7 +107,7 @@ void AngVelEstimator::pushEvent(const dvs_msgs::Event& event)
         ev_lock.unlock();
 
         // If the time span of this event packet is to long, assume the ang_vel is 0
-        const double timespan_packet = (event_subset_.back().ts - event_subset_.front().ts).toSec();
+        const double timespan_packet = (rclcpp::Time(event_subset_.back().ts) - rclcpp::Time(event_subset_.front().ts)).seconds();
         if (timespan_packet > 10*params.dt_ang_vel)
         {
             VLOG(2) << "Time span of the event packet is too long, assume the angular velocity to be 0";
@@ -139,7 +140,7 @@ void AngVelEstimator::getEventSubset()
     // Get event subset
     ev_beg_idx_ = event_subsets_info_.front().first;
     ev_end_idx_ = event_subsets_info_.front().second;
-    event_subset_ = std::vector<dvs_msgs::Event>(events_.begin() + ev_beg_idx_,
+    event_subset_ = std::vector<DvsEvent>(events_.begin() + ev_beg_idx_,
                                                  events_.begin() + ev_end_idx_);
 
     // Erase the used event subset
@@ -191,13 +192,13 @@ void AngVelEstimator::processEventPacket()
 void AngVelEstimator::publishAngularVelocity()
 {
     // Publish motion parameters
-    geometry_msgs::TwistStamped twist_msg;
+    geometry_msgs::msg::TwistStamped twist_msg;
     twist_msg.twist.angular.x = ang_vel_.x * rad2degFactor;
     twist_msg.twist.angular.y = ang_vel_.y * rad2degFactor;
     twist_msg.twist.angular.z = ang_vel_.z * rad2degFactor;
     twist_msg.header.stamp = time_packet_;
     twist_msg.header.frame_id = "body";
-    ang_vel_pub_.publish(twist_msg);
+    ang_vel_pub_->publish(twist_msg);
 }
 
 void AngVelEstimator::publishEventImage()

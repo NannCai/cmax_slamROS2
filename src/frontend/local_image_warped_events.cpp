@@ -1,7 +1,7 @@
 #include "utils/image_geom_util.h"
 #include "frontend/ang_vel_estimator.h"
 
-#include <ros/time.h>
+// #include <ros/time.h>
 #include <glog/logging.h>
 #include <opencv2/highgui.hpp>
 
@@ -60,19 +60,19 @@ void AngVelEstimator::warpAndAccumulateEvents(
         const cv::Point3d& ang_vel,
         const int& idx_event_batch_begin,
         const int& idx_event_batch_end,
-        const ros::Time time_ref,
+        const rclcpp::Time time_ref,
         cv::Mat* image_warped,
         cv::Mat* image_warped_deriv)
 {
     // All events in this batch share a common pose (for speed-up)
-    ros::Time time_first = event_subset_.at(idx_event_batch_begin).ts;
-    ros::Time time_last = event_subset_.at(idx_event_batch_end-1).ts;
-    ros::Duration time_dt = time_last - time_first;
-    //CHECK_GT(time_dt.toSec(), 0.) << "Events must span a non-zero time interval";
-    CHECK_GE(time_dt.toSec(), 0.) << "Events must span a non-negative time interval";
-    ros::Time time_batch = time_first + time_dt * 0.5;
+    rclcpp::Time time_first = rclcpp::Time(event_subset_.at(idx_event_batch_begin).ts);
+    rclcpp::Time time_last = rclcpp::Time(event_subset_.at(idx_event_batch_end-1).ts);
+    rclcpp::Duration time_dt = time_last - time_first;
+    //CHECK_GT(time_dt.seconds(), 0.) << "Events must span a non-zero time interval";
+    CHECK_GE(time_dt.seconds(), 0.) << "Events must span a non-negative time interval";
+    rclcpp::Time time_batch = time_first + time_dt * 0.5;
 
-    const double dt = time_batch.toSec() - time_ref.toSec(); // faster than Duration object
+    const double dt = time_batch.seconds() - time_ref.seconds(); // faster than Duration object
     const cv::Point3d delta_rot = ang_vel * dt;
 
     static cv::Point2d calibrated_pt;
