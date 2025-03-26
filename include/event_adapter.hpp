@@ -7,7 +7,7 @@
 #include <fstream>
 
 struct DvsEvent {
-  int32_t ts;
+  int64_t ts;     // ns
   uint16_t x;
   uint16_t y;
   uint8_t polarity;
@@ -25,11 +25,11 @@ public:
 
   // 核心回调接口
   void eventCD(uint64_t ts, uint16_t x, uint16_t y, uint8_t polarity) override {
-    // std::cout << "eventCD---ts: " << ts << ", x: " << x << ", y: " << y << ", polarity: " << static_cast<int>(polarity) << std::endl;
+    // std::cout << "eventCD---ts(ns): " << shorten_time(ts)* 1000 << ", x: " << x << ", y: " << y << ", polarity: " << static_cast<int>(polarity) << std::endl;
     // std::cout << "ts: " << ts << ", x: " << x << ", y: " << y << ", polarity: " << polarity << std::endl;
     // debugFile_ << "sensor_time: " << ts << "\n";
 
-    buffer_.emplace_back(DvsEvent{shorten_time(ts), x, y, polarity});
+    buffer_.emplace_back(DvsEvent{shorten_time(ts)* 1000 , x, y, polarity});
     if (buffer_.size() >= batch_size_) {
       flush();
     }
@@ -59,7 +59,7 @@ public:
   }
 
   void setHasSensorTimeSinceEpoch(bool b) { hasSensorTimeSinceEpoch_ = b; }
-  int32_t shorten_time(uint64_t t)
+  int64_t shorten_time(uint64_t t)
   {
     if (hasSensorTimeSinceEpoch_) {
       if (!hasStartTime_) {
@@ -69,12 +69,12 @@ public:
       // debugFile_ << "hasSensorTimeSinceEpoch: " << hasSensorTimeSinceEpoch_
       //            << ", startTime: " << startTime_
       //            << ", Before: " << t << ", After: " << static_cast<int32_t>(t - startTime_) << "\n";
-      return (static_cast<int32_t>(t - startTime_));
+      return (static_cast<int64_t>(t - startTime_));
     }
     // debugFile_ << "hasSensorTimeSinceEpoch: " << hasSensorTimeSinceEpoch_
     //            << ", startTime: " << startTime_
     //            << ", Before: " << t << ", After: " << static_cast<int32_t>(t - startTime_) << "\n";
-    return (static_cast<int32_t>(t - startTime_));
+    return (static_cast<int64_t>(t - startTime_));
   }
 
 

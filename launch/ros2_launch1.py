@@ -17,9 +17,6 @@ def generate_launch_description():
     #     cmax_slam_config = yaml.safe_load(ymlfile)
 
 
-
-
-
     # bag_play = TimerAction(
     #     period=0.0,
     #     actions=[
@@ -63,21 +60,13 @@ def generate_launch_description():
         
 
 
-
-
-
-
-
-
         # ROS2 bag play (modify path to your bag)
         ExecuteProcess(
-            cmd=['ros2', 'bag', 'play', '-r', '0.1', 'events_2025-03-11-17-33-35/'],
+            cmd=['ros2', 'bag', 'play', '-r', '0.1', 'events_2025-03-21-16-38-32/'],
+            # cmd=['ros2', 'bag', 'play', '-r', '0.1', 'events_2025-03-11-17-33-35/'],
+            
             output='screen'
         ),
-
-
-
-
 
 
 

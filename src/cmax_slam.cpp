@@ -1,6 +1,7 @@
 #include "cmax_slam.h"
 #include <glog/logging.h>
 #include <camera_info_manager/camera_info_manager.hpp>
+#include <iostream>
 
 #include <string>
 #include <sstream>
@@ -178,10 +179,25 @@ void CMaxSLAM::eventsCallback(const event_camera_msgs::msg::EventPacket::SharedP
     auto decoder = factory.getInstance(*msg);
     if (!decoder) return;
     decoder->setTimeMultiplier(1);
+    decoder->setTimeBase(msg->time_base);
+    batch_processor_.setHasSensorTimeSinceEpoch(decoder->hasSensorTimeSinceEpoch());
+
 
     decoder->decode(*msg, &batch_processor_);
     std::vector<DvsEvent> event_subset = batch_processor_.events();
     batch_processor_.clear();
+    
+    // Print size and first 5 events
+    RCLCPP_INFO(node_->get_logger(), "Event subset size: %zu", event_subset.size());
+    for (size_t i = 0; i < std::min(event_subset.size(), size_t(5)); ++i) {
+        const auto& ev = event_subset[i];
+        // RCLCPP_INFO(node_->get_logger(), "Event %zu: t=%f, x=%d, y=%d, p=%d", 
+        //            i, ev.ts, ev.x, ev.y, ev.p);
+
+        std::cout << "eventCD---ts(s): " << ev.ts/ 1e9 << ", x: " << ev.x << ", y: " << ev.y << ", polarity: " << static_cast<int>(ev.polarity) << std::endl;
+
+
+    }
 
 
     // for (auto ev = msg->events.begin(); ev < msg->events.end();
@@ -194,8 +210,11 @@ void CMaxSLAM::eventsCallback(const event_camera_msgs::msg::EventPacket::SharedP
     for (auto ev = event_subset.begin(); ev < event_subset.end();  // Changed from msg->events to event_subset
          ev += front_end_params_.warp_opt.event_sample_rate)
     {
-        // Push events into the frontend, which will pass them to the backend then.
+        // std::cout << "Event " <<  ": t=" << ev->ts << ", x=" << ev->x 
+        //     << ", y=" << ev->y << ", p=" << ev->polarity << std::endl;
+        // // Push events into the frontend, which will pass them to the backend then.
         ang_vel_estimator_->pushEvent(*ev);  // Now using decoded events from event_subset
+        // std::cout<< "finish pushEvent"<< std::endl;
     }
 
 }

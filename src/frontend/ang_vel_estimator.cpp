@@ -76,15 +76,20 @@ void AngVelEstimator::pushEvent(const DvsEvent& event)
         time_get_subset_ = time_packet_;
         sliding_window_initialized_ = true;
     }
-
     // Add this new event into the total event vector
     std::unique_lock<std::mutex> ev_lock(pose_graph_optimizer_->mutex_events);
     events_.emplace_back(event);
     num_event_total_ += 1;
 
-    // Get event subset info
-    if (rclcpp::Time(event.ts) > time_get_subset_)
+    // // Get event subset info
+    // std::cout<< "good 1" << std::endl;
+    // std::cout<< "time_get_subset_ " << time_get_subset_.seconds()<< std::endl;
+    // std::cout<< "event.ts " << event.ts<< "rclcpp::Time(event.ts).seconds() " << rclcpp::Time(event.ts).seconds()<< std::endl;
+
+    if (rclcpp::Time(event.ts) > time_get_subset_)  //
     {
+        std::cout<< "AngVelEstimator::pushEvent 2222" << std::endl;
+
         // Compute the indexes of the head and tail of the event subset
         const int idx_subset_beg = std::max(num_event_total_-num_ev_half_packet_, 0);
         const int idx_subset_end = num_event_total_+num_ev_half_packet_;
@@ -100,6 +105,8 @@ void AngVelEstimator::pushEvent(const DvsEvent& event)
     // Once the whole event packet is received, perform CMax angular velocity estimation
     if (!event_subsets_info_.empty() && num_event_total_ > event_subsets_info_.front().second)
     {
+        std::cout<< "AngVelEstimator::pushEvent 33333" << std::endl;
+
         // Get event subset for the current time window
         getEventSubset();
 
@@ -118,9 +125,20 @@ void AngVelEstimator::pushEvent(const DvsEvent& event)
             // Process the current time window
             processEventPacket();
         }
+        
+
+
 
         // Feed the estimated angular velocity to the back-end
         Eigen::Vector3d ang_vel(ang_vel_.x, ang_vel_.y, ang_vel_.z);
+
+
+        // Print angular velocity
+        VLOG(1) << "[AngVelEstimator] Estimated angular velocity (deg/s): "         //TODO didn't print this
+                << "x: " << ang_vel_.x 
+                << ", y: " << ang_vel_.y 
+                << ", z: " << ang_vel_.z ;
+
         pose_graph_optimizer_->pushAngVel(time_packet_, ang_vel);
 
         // Save / Publish image

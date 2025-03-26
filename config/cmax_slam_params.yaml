@@ -8,7 +8,7 @@ cmax_slam:
     event_batch_size: 100
     frontend_event_sample_rate: 1
     backend_event_sample_rate: 1
-    num_events_per_packet: 10000
+    num_events_per_packet: 100000
     dt_ang_vel: 0.01
     show_local_iwe: true
     backend_time_window_size: 0.2
